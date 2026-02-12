@@ -243,4 +243,5 @@ if __name__ == '__main__':
     daemon = threading.Thread(target=cleanup_expired_posts, daemon=True)
     daemon.start()
     # Run server
-    app.run(host='0.0.0.0', port=5000)
+
+    app.run(host='0.0.0.0', port=10000)

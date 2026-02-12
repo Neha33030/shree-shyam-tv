@@ -1,1 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shree Shyam TV | Premium Devotional Broadcast</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        html { scroll-behavior: smooth; font-family: 'Inter', sans-serif; }
+        .carousel-slide { display: none; transition: opacity 0.5s ease-in-out; }
+        .carousel-slide.active { display: block; }
+        .premium-shadow { box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2); }
+        #custom-modal { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); z-index: 1000; align-items: center; justify-content: center; }
+        #msg-box { display: none; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #0d9488; border-radius: 10px; }
+    </style>
+    <script>
+        /**
+         * API CONFIGURATION
+         * Replace 'localhost' with your server IP when hosting online.
+         */
+        const API_BASE_URL = "https://shree-shyam-tv.onrender.com""; 
 
+        // Admin mode check (?admin=true in URL)
+        let isAdmin = new URLSearchParams(window.location.search).get('admin') === 'true';
+
+        // Notification Display
+        window.showMessage = (msg, isError = false) => {
+            const box = document.getElementById('msg-box');
+            box.textContent = msg;
+            box.className = `fixed top-24 right-5 p-5 rounded-2xl shadow-2xl z-[1001] font-black text-white ${isError ? 'bg-red-600' : 'bg-[#FF9933]'}`;
+            box.style.display = 'block';
+            setTimeout(() => { box.style.display = 'none'; }, 4000);
+        };
+
+        // Admin Deletion Handling
+        let pendingDelete = null;
+        window.confirmDelete = (table, id) => {
+            pendingDelete = { table, id };
+            document.getElementById('custom-modal').style.display = 'flex';
+        };
+
+        window.closeConfirm = () => { document.getElementById('custom-modal').style.display = 'none'; };
+
+        window.executeDelete = async () => {
+            if (!pendingDelete) return;
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/admin/delete/${pendingDelete.table}/${pendingDelete.id}`, { method: 'DELETE' });
+                if (res.ok) { showMessage("Entry deleted."); loadAllData(); }
+            } catch (e) { showMessage("Connection error.", true); }
+            closeConfirm();
+        };
+
+        // Main Data Loader
+        async function loadAllData() {
+            try {
+                // Register visitor log
+                fetch(`${API_BASE_URL}/api/visit`, { method: 'POST' });
+                
+                // Load Stats
+                const statsRes = await fetch(`${API_BASE_URL}/api/stats`);
+                const stats = await statsRes.json();
+                document.getElementById('daily-visitor-count').textContent = stats.daily_visitors;
+                document.getElementById('viewer-count').textContent = Math.floor(Math.random() * 20) + 5 + "+";
+
+                // Load Content Lists
+                const [kRes, bRes, sRes] = await Promise.all([
+                    fetch(`${API_BASE_URL}/api/kirtans`),
+                    fetch(`${API_BASE_URL}/api/bus`),
+                    fetch(`${API_BASE_URL}/api/sathi`)
+                ]);
+                
+                renderKirtans(await kRes.json());
+                renderBus(await bRes.json());
+                renderSathi(await sRes.json());
+            } catch (e) { console.error("Data fetch failed:", e); }
+        }
+
+        function renderKirtans(list) {
+            const cont = document.getElementById('kirtan-display-container');
+            cont.innerHTML = list.length === 0 ? '<p class="text-gray-400 p-10 text-center font-bold">No upcoming events scheduled.</p>' : '';
+            const grid = document.createElement('div');
+            grid.className = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 w-full';
+            list.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'bg-white rounded-[2.5rem] overflow-hidden premium-shadow border-t-8 border-orange-500 transform transition hover:-translate-y-2';
+                let img = item.pic ? `<img src="${item.pic}" class="w-full h-56 object-cover bg-gray-100">` : 
+                                     `<div class="w-full h-56 bg-teal-900 flex items-center justify-center text-white font-black text-3xl">SHREE SHYAM TV</div>`;
+                card.innerHTML = `${img}<div class="p-8">
+                    <h3 class="font-black text-teal-950 text-2xl mb-3">${item.name}</h3>
+                    <div class="space-y-1 text-gray-600 font-medium">
+                        <p>📍 ${item.location}</p>
+                        <p>📅 ${item.date}</p>
+                        <p class="text-teal-700 font-bold mt-4 italic text-sm">By: ${item.organizer || 'Shyam Premi'}</p>
+                    </div>
+                    ${isAdmin ? `<button onclick="confirmDelete('kirtans', ${item.id})" class="mt-6 w-full bg-red-600 text-white py-3 rounded-2xl font-black shadow-lg hover:bg-red-700 transition">DELETE POST</button>` : ''}
+                </div>`;
+                grid.appendChild(card);
+            });
+            cont.appendChild(grid);
+        }
+
+        function renderBus(list) {
+            const cont = document.getElementById('bus-display-container');
+            cont.innerHTML = list.length === 0 ? '<p class="text-gray-400 p-10 text-center font-bold">No active bus services.</p>' : '';
+            const grid = document.createElement('div');
+            grid.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full';
+            list.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'bg-teal-50 p-8 rounded-[3rem] border-l-[12px] border-teal-800 shadow-xl';
+                card.innerHTML = `<h3 class="font-black text-teal-950 text-2xl uppercase tracking-tighter">${item.from} → ${item.to}</h3>
+                    <p class="mt-4 text-gray-700 leading-relaxed font-bold">Seats: <span class="text-teal-700">${item.seats}</span><br>Departure: <span class="text-teal-700">${item.date}</span></p>
+                    <a href="https://wa.me/91${item.phone}" target="_blank" class="mt-6 block bg-green-600 text-white text-center py-3 rounded-2xl font-black shadow-lg hover:bg-green-700 transition">WHATSAPP CONTACT</a>
+                    ${isAdmin ? `<button onclick="confirmDelete('bus_seva', ${item.id})" class="mt-4 text-red-600 font-black text-xs w-full text-center border-t border-teal-200 pt-2 hover:underline">DELETE ENTRY</button>` : ''}`;
+                grid.appendChild(card);
+            });
+            cont.appendChild(grid);
+        }
+
+        function renderSathi(list) {
+            const cont = document.getElementById('sathi-display-container');
+            cont.innerHTML = '';
+            list.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'bg-white p-6 rounded-[2rem] shadow-lg border-l-8 border-orange-500 mb-6 flex justify-between items-center transition hover:shadow-2xl';
+                div.innerHTML = `<div>
+                    <p class="text-[10px] font-black text-orange-600 uppercase tracking-widest mb-1">Posted by ${item.name || 'Shyam Premi'}</p>
+                    <h4 class="font-black text-teal-950 text-xl">${item.purpose}</h4>
+                    <p class="text-gray-600 text-sm italic">At: ${item.location}</p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="https://wa.me/91${item.whatsapp}" target="_blank" class="bg-green-100 text-green-700 p-4 rounded-full hover:bg-green-600 hover:text-white transition shadow-sm"><svg class="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M12.039 2.001c-5.52 0-10 4.48-10 10s4.48 10 10 10 10-4.48 10-10-4.48-10-10-10zm0 18.232c-4.593 0-8.232-3.72-8.232-8.232 0-2.227.91-4.307 2.532-5.78l-.666-2.433 2.505.658c1.37-1.144 3.12-1.78 4.673-1.78 4.593 0 8.232 3.72 8.232 8.232 0 4.512-3.715 8.232-8.232 8.232zm3.327-4.678c-.149-.247-.534-.403-.923-.55-.389-.147-2.315-1.129-2.736-1.276-.421-.147-.728-.221-.923.221-.194.442-.751.923-.918 1.118-.167.194-.334.221-.617.074-.367-.147-1.554-.572-2.96-1.83-1.104-1.026-1.847-2.336-2.071-2.757-.221-.421-.022-.647.175-.842.16-.16.357-.403.534-.647.175-.247.234-.403.334-.617.1-.221.05-.403-.022-.55-.072-.147-.814-1.97-.98-2.388-.166-.375-.33-.306-.511-.313-.194-.007-.421-.007-.647-.007-.226 0-.61.074-.923.37-.312.296-1.187 1.161-1.187 2.825 0 1.664 1.21 3.27 1.391 3.518.18.247 2.373 3.65 5.758 5.093 3.386 1.442 3.386 1.05 4.004.976.618-.074 1.944-.795 2.226-1.555.283-.761.283-1.407.194-1.554-.089-.147-.32-.221-.514-.367z"/></svg></a>
+                    ${isAdmin ? `<button onclick="confirmDelete('sathi_connect', ${item.id})" class="text-red-600 font-black text-xs hover:scale-110 transition">DEL</button>` : ''}
+                </div>`;
+                cont.appendChild(div);
+            });
+        }
+
+        // Image Compressor Logic
+        async function compressImg(file) {
+            return new Promise(res => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = e => {
+                    const img = new Image();
+                    img.src = e.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const w = 800; const scale = w / img.width;
+                        canvas.width = w; canvas.height = img.height * scale;
+                        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                        res(canvas.toDataURL('image/jpeg', 0.65));
+                    };
+                };
+            });
+        }
+
+        // Action Submissions
+        window.submitKirtan = async (e) => {
+            e.preventDefault();
+            const form = e.target; const btn = form.querySelector('button');
+            btn.disabled = true; btn.textContent = "POSTING Divya Kirtan...";
+            let pic = ""; if(form.kirtanPicFile.files[0]) pic = await compressImg(form.kirtanPicFile.files[0]);
+            const payload = { name: form.kirtanName.value, location: form.kirtanLocation.value, date: form.kirtanDate.value, pic, organizer: form.contactName.value, phone: form.contactPhoneKirtan.value };
+            const res = await fetch(`${API_BASE_URL}/api/kirtans`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+            if(res.ok) { showMessage("Program Promotion Successful!"); form.reset(); loadAllData(); } else { showMessage("Language not polite or API error", true); }
+            btn.disabled = false; btn.textContent = "POST PROMOTION";
+        };
+
+        window.submitBus = async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const payload = { name: form.sevaName.value, from: form.routeFrom.value, to: form.routeTo.value, date: form.departureDate.value, seats: form.availableSeats.value, phone: form.contactPhone.value, organizer: 'Shyam Premi' };
+            const res = await fetch(`${API_BASE_URL}/api/bus`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+            if(res.ok) { showMessage("Bus details posted!"); form.reset(); loadAllData(); }
+        };
+
+        window.submitSathi = async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const payload = { name: form.sathiName.value, location: form.sathiLocation.value, purpose: form.sathiPurpose.value, whatsapp: form.contactWhatsapp.value };
+            const res = await fetch(`${API_BASE_URL}/api/sathi`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+            if(res.ok) { showMessage("Partner request posted!"); form.reset(); loadAllData(); }
+        };
+
+        window.submitContact = async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const payload = { name: form.name.value, email: form.email.value, message: form.message.value };
+            const res = await fetch(`${API_BASE_URL}/api/contact`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+            if(res.ok) { showMessage("Message sent to SSTV team!"); form.reset(); }
+        };
+
+        document.addEventListener('DOMContentLoaded', loadAllData);
+    </script>
+</head>
+<body class="bg-gray-50 text-gray-900 overflow-x-hidden">
+    <!-- Messages and Modals -->
+    <div id="msg-box"></div>
+    <div id="custom-modal">
+        <div class="bg-white p-12 rounded-[3rem] max-w-sm w-full mx-4 text-center shadow-2xl border-t-[10px] border-red-600">
+            <h3 class="text-3xl font-black text-teal-950 mb-6 tracking-tighter">Are you sure?</h3>
+            <div class="flex space-x-6">
+                <button onclick="closeConfirm()" class="flex-1 py-4 bg-gray-100 rounded-2xl font-black text-teal-900 uppercase">Back</button>
+                <button onclick="executeDelete()" class="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black shadow-xl uppercase">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edge-to-Edge Navigation -->
+    <header class="sticky top-0 bg-teal-950 shadow-2xl z-50 w-full border-b border-white/5">
+        <nav class="w-full px-8 py-5 flex justify-between items-center">
+            <div class="flex items-center space-x-4">
+                <div class="bg-[#FF9933] p-2.5 rounded-2xl shadow-lg border border-white/20"><span class="text-white font-black text-2xl">SSTV</span></div>
+                <div class="text-4xl font-black text-amber-400 tracking-tighter hidden md:block font-serif">Shree Shyam TV</div>
+            </div>
+            <div class="hidden lg:flex space-x-10 items-center">
+                <a href="#home" class="text-gray-200 hover:text-amber-400 font-black transition uppercase text-xs tracking-widest">Home</a>
+                <a href="#live" class="text-gray-200 hover:text-amber-400 font-black transition uppercase text-xs tracking-widest">Live Stream</a>
+                <a href="#kirtan-promotion" class="text-gray-200 hover:text-amber-400 font-black transition uppercase text-xs tracking-widest">Programs</a>
+                <a href="#bhakt-bus-seva" class="text-gray-200 hover:text-amber-400 font-black transition uppercase text-xs tracking-widest">Bus Seva</a>
+                <a href="#bhakt-sathi-connect" class="text-amber-400 font-black uppercase text-xs tracking-widest px-4 py-2 border-2 border-amber-500 rounded-full">🤝 Sathi</a>
+                <a href="#mobile-app" class="text-green-400 font-black transition uppercase text-xs tracking-widest">Download App</a>
+                <a href="#contact" class="text-orange-400 font-black uppercase text-xs tracking-widest">Contact</a>
+            </div>
+            <button onclick="document.getElementById('mobile-menu').classList.toggle('hidden')" class="lg:hidden text-amber-400 p-2">
+                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+            </button>
+        </nav>
+        <div id="mobile-menu" class="hidden lg:hidden bg-teal-950 p-10 space-y-8 shadow-2xl border-t border-white/5 h-screen text-center">
+            <a href="#home" class="block text-white font-black text-3xl uppercase tracking-tighter" onclick="this.parentElement.classList.add('hidden')">Home</a>
+            <a href="#live" class="block text-white font-black text-3xl uppercase tracking-tighter" onclick="this.parentElement.classList.add('hidden')">Live</a>
+            <a href="#kirtan-promotion" class="block text-white font-black text-3xl uppercase tracking-tighter" onclick="this.parentElement.classList.add('hidden')">Kirtan</a>
+            <a href="#bhakt-bus-seva" class="block text-white font-black text-3xl uppercase tracking-tighter" onclick="this.parentElement.classList.add('hidden')">Bus Seva</a>
+            <a href="#mobile-app" class="block text-green-400 font-black text-3xl uppercase tracking-tighter" onclick="this.parentElement.classList.add('hidden')">Download App</a>
+            <a href="#contact" class="block text-orange-400 font-black text-3xl uppercase tracking-tighter" onclick="this.parentElement.classList.add('hidden')">Contact Us</a>
+        </div>
+    </header>
+
+    <main class="w-full">
+        <!-- Full Screen Hero Slider -->
+        <section id="home" class="w-full p-4 sm:p-6">
+            <div id="carousel-container" class="relative w-full overflow-hidden rounded-[3rem] sm:rounded-[5rem] premium-shadow border-[8px] border-teal-950">
+                <div id="slides" class="h-[400px] sm:h-[600px] lg:h-[850px] w-full">
+                    <div class="carousel-slide active absolute inset-0 bg-cover bg-center" style="background-image: url('https://placehold.co/1920x1080/004d4d/FF9933?text=Jai+Shree+Shyam');">
+                        <div class="bg-black/30 h-full w-full flex flex-col items-center justify-center text-center">
+                            
+                        </div>
+                    </div>
+                    <div class="carousel-slide absolute inset-0 bg-cover bg-center" style="background-image: url('https://i.postimg.cc/VsgV6tjV/16087284247fa8a22fc8eec0922632fff4289ec9a1.jpg');">
+                        <div class="bg-black/40 h-full w-full flex flex-col items-center justify-center text-center">
+                           
+                        </div>
+                    </div>
+                </div>
+                <div id="carousel-dots" class="absolute bottom-16 left-0 right-0 flex justify-center space-x-4"></div>
+            </div>
+        </section>
+
+        <!-- Dynamic Stats & Live Stream -->
+        <section id="live" class="w-full px-8 py-20 bg-white rounded-[5rem] premium-shadow mb-20 border-t-[20px] border-teal-800">
+            <div class="flex flex-col xl:flex-row justify-between items-center mb-16 px-10">
+                <div class="text-center xl:text-left">
+                    <h2 class="text-7xl sm:text-8xl font-black text-teal-950 tracking-tighter uppercase"><span class="text-red-600 animate-pulse">●</span> ON AIR</h2>
+                    <p class="text-teal-600 font-black uppercase tracking-[0.4em] mt-4 ml-1 italic text-lg">Broadcast from Khatudham</p>
+                </div>
+                <div class="flex flex-wrap justify-center gap-10 mt-12 xl:mt-0">
+                    <div class="bg-orange-50 px-12 py-8 rounded-[3rem] border-[4px] border-orange-500 text-teal-950 text-center shadow-inner group">
+                        <p class="text-sm font-black uppercase opacity-60 tracking-widest mb-2">Bhakt Watching</p>
+                        <span id="viewer-count" class="text-6xl font-black text-red-600">...</span>
+                    </div>
+                    <div class="bg-teal-50 px-12 py-8 rounded-[3rem] border-[4px] border-teal-800 text-teal-950 text-center shadow-inner group">
+                        <p class="text-sm font-black uppercase opacity-60 tracking-widest mb-2">Today's Visits</p>
+                        <span id="daily-visitor-count" class="text-6xl font-black">...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="w-full aspect-video bg-black rounded-[5rem] overflow-hidden border-[20px] border-teal-950 shadow-[0_0_100px_rgba(0,0,0,0.5)] relative mx-auto max-w-[1600px]">
+                <video id="shyam-live-video" class="w-full h-full" controls autoplay muted playsinline></video>
+            </div>
+        </section>
+
+        <!-- Kirtan Promotion System -->
+        <section id="kirtan-promotion" class="w-full px-8 py-32 bg-white rounded-[7rem] shadow-2xl border-t-[25px] border-orange-500 mb-20">
+            <div class="flex flex-col 2xl:flex-row gap-24">
+                <div class="2xl:w-1/4">
+                    <h2 class="text-7xl font-black text-teal-950 mb-12 font-serif leading-none tracking-tighter">Post Your Kirtan  <br><span class="text-orange-500">Promotion</span></h2>
+                    <form onsubmit="submitKirtan(event)" class="space-y-6 p-12 bg-teal-50 rounded-[4rem] border-2 border-teal-100 shadow-inner">
+                        <div class="space-y-5">
+                            <input type="text" name="kirtanName" required placeholder="Event Title *" class="w-full p-6 border-4 border-white rounded-3xl outline-none focus:border-orange-500 text-xl font-bold">
+                            <input type="text" name="kirtanLocation" required placeholder="Full Address *" class="w-full p-6 border-4 border-white rounded-3xl outline-none">
+                            <div class="px-4"><label class="text-xs font-black text-teal-800 uppercase tracking-[0.2em]">Program Date</label><input type="date" name="kirtanDate" required class="w-full p-6 border-4 border-white rounded-3xl mt-2 font-bold"></div>
+                            <div class="px-4"><label class="text-xs font-black text-teal-800 uppercase tracking-[0.2em]">Upload Photo</label><input type="file" name="kirtanPicFile" accept="image/*" class="w-full p-5 border-4 border-white rounded-3xl bg-white mt-2 text-sm font-bold"></div>
+                            <input type="text" name="contactName" placeholder="Organizer Name" class="w-full p-6 border-4 border-white rounded-3xl text-xl">
+                            <input type="tel" name="contactPhoneKirtan" required placeholder="WhatsApp Number *" class="w-full p-6 border-4 border-white rounded-3xl text-xl">
+                        </div>
+                        <button type="submit" class="w-full bg-orange-500 text-white font-black py-8 rounded-3xl shadow-2xl hover:bg-orange-600 transition transform active:scale-95 text-2xl tracking-[0.2em] uppercase">POST PROMOTION</button>
+                    </form>
+                </div>
+                <div class="2xl:w-3/4">
+                    <div class="flex items-center space-x-8 mb-20">
+                        <h3 class="text-5xl font-black text-teal-950 uppercase tracking-tighter">Upcoming Divya Programs</h3>
+                        <div class="h-[6px] bg-gradient-to-r from-orange-500 to-transparent flex-1 rounded-full"></div>
+                    </div>
+                    <div id="kirtan-display-container" class="min-h-[500px]"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Full Width App Download -->
+        <section id="mobile-app" class="w-full px-10 py-40 mb-20 bg-teal-950 rounded-[8rem] text-white overflow-hidden border-[25px] border-teal-900 shadow-2xl relative mx-auto">
+            <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10"></div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-32 items-center relative z-10">
+                <div class="text-center lg:text-left">
+                    <span class="bg-orange-500 text-teal-950 font-black px-10 py-3 rounded-full text-base uppercase tracking-[0.5em] mb-12 inline-block shadow-xl">Official Stream App</span>
+                    <h2 class="text-8xl sm:text-[10rem] font-black mb-16 text-amber-400 leading-[0.7] tracking-tighter">THE POWER <br>OF FAITH <br>IN YOUR <br>POCKET</h2>
+                    <p class="text-4xl text-gray-400 mb-20 leading-snug max-w-4xl font-light">Download the Shree Shyam TV app to get instant live alerts and premium devotional content 24/7.</p>
+                    <a href="https://play.google.com/store/apps/details?id=com.jcode.srtplayer" target="_blank" class="inline-flex items-center bg-black border-[6px] border-gray-800 px-20 py-10 rounded-[4rem] hover:scale-110 transition-all shadow-[0_30px_60px_rgba(0,0,0,0.8)] group">
+                        <svg class="w-24 h-24 mr-10 text-gray-500 group-hover:text-amber-500 transition" viewBox="0 0 24 24" fill="currentColor"><path d="M3.609 1.814L13.792 12 3.61 22.186a1.988 1.988 0 01-.581-1.393V3.207c0-.528.21-1.033.58-1.393zM15.206 13.414l2.586-1.414a2.984 2.984 0 000-5.187l-2.586-1.414L14.498 6.1l.004 11.8 1.41-.786zM4.316 1.42l11.47 6.257-2.316 2.317L4.316 1.42zM13.47 13.993l2.316 2.317L4.316 22.58l9.154-8.587z"/></svg>
+                        <div class="text-left"><p class="text-lg uppercase font-black text-gray-500 tracking-[0.6em] mb-2">NOW ON</p><p class="text-6xl font-black">Google Play</p></div>
+                    </a>
+                </div>
+                <div class="flex justify-center">
+                    <div class="w-[450px] h-[800px] bg-[#011a1a] rounded-[6rem] border-[20px] border-[#111827] shadow-[0_0_150px_rgba(0,0,0,0.8)] flex flex-col items-center justify-center relative transform hover:rotate-3 transition duration-1000">
+                        <div class="bg-orange-500 p-16 rounded-[4rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] mb-16 scale-125"><span class="text-white font-black text-[5rem]">SSTV</span></div>
+                        <h4 class="font-black text-teal-200 text-5xl uppercase tracking-tighter">SHREE SHYAM TV</h4>
+                        <div class="absolute bottom-16 w-32 h-2 bg-gray-800 rounded-full"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sathi Connect & Connection Hub -->
+        <section id="bhakt-sathi-connect" class="w-full px-10 py-32 bg-white rounded-[7rem] shadow-2xl border-t-[25px] border-teal-800 mb-20">
+            <h2 class="text-8xl font-black text-center text-teal-950 mb-24 tracking-tighter uppercase">🤝 Shyam Seva Network</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-24 px-10">
+                <div class="bg-orange-50 p-20 rounded-[6rem] shadow-inner border-2 border-orange-100 h-fit">
+                    <h3 class="text-4xl font-black text-teal-950 mb-10 uppercase italic">Connect with Devotees</h3>
+                    <form onsubmit="submitSathi(event)" class="space-y-10">
+                        <input type="text" name="sathiName" placeholder="Your Divine Name" class="w-full p-8 border-4 border-white rounded-[3rem] text-2xl shadow-sm outline-none focus:border-teal-800">
+                        <input type="text" name="sathiLocation" required placeholder="Current Location *" class="w-full p-8 border-4 border-white rounded-[3rem] text-2xl outline-none focus:border-teal-800">
+                        <select name="sathiPurpose" required class="w-full p-8 border-4 border-white rounded-[3rem] text-2xl outline-none focus:border-teal-800">
+                            <option value="">Purpose of Meeting</option><option value="Ride to Temple">Ride to Temple</option><option value="Shared Bus Trip">Shared Bus Trip</option><option value="Satsang / Bhajan">Satsang / Bhajan</option>
+                        </select>
+                        <input type="tel" name="contactWhatsapp" required placeholder="Contact WhatsApp *" class="w-full p-8 border-4 border-white rounded-[3rem] text-2xl outline-none focus:border-teal-800">
+                        <button type="submit" class="w-full bg-teal-800 text-white font-black py-10 rounded-[3.5rem] shadow-2xl hover:bg-teal-950 transition text-3xl tracking-widest">POST MY REQUEST</button>
+                    </form>
+                </div>
+                <div id="sathi-display-container" class="w-full overflow-y-auto max-h-[1000px] pr-8 custom-scrollbar"></div>
+            </div>
+        </section>
+
+        <!-- Bus Seva Full Width Section -->
+        <section id="bhakt-bus-seva" class="w-full px-10 py-32 bg-teal-50 rounded-[7rem] border-t-[25px] border-teal-800 mb-20 shadow-inner">
+            <div class="flex flex-col 2xl:flex-row gap-24 w-full">
+                <div class="2xl:w-1/4">
+                    <h2 class="text-7xl font-black text-teal-950 mb-12 font-serif leading-none tracking-tighter italic">Bhakt Parivar <br><span class="text-teal-700 font-sans tracking-normal">Bus Seva</span></h2>
+                    <form onsubmit="submitBus(event)" class="space-y-8 p-16 bg-white rounded-[5rem] shadow-2xl h-fit border-2 border-teal-100">
+                        <input type="text" name="sevaName" required placeholder="Bus Seva Name *" class="w-full p-8 border-4 border-gray-50 rounded-[3rem] text-2xl font-bold">
+                        <div class="flex gap-6"><input type="text" name="routeFrom" required placeholder="Origin *" class="w-1/2 p-8 border-4 border-gray-50 rounded-[3rem] text-2xl font-bold"><input type="text" name="routeTo" required placeholder="To *" class="w-1/2 p-8 border-4 border-gray-50 rounded-[3rem] text-2xl font-bold"></div>
+                        <div class="px-6"><label class="text-xs font-black text-gray-400 uppercase tracking-widest">Travel Departure Date</label><input type="date" name="departureDate" required class="w-full p-8 border-4 border-gray-50 rounded-[3rem] text-2xl font-bold mt-2"></div>
+                        <input type="number" name="availableSeats" required placeholder="Total Seats *" class="w-full p-8 border-4 border-gray-50 rounded-[3rem] text-2xl font-bold">
+                        <input type="tel" name="contactPhone" required placeholder="WhatsApp No. *" class="w-full p-8 border-4 border-gray-50 rounded-[3rem] text-2xl font-bold">
+                        <button type="submit" class="w-full bg-teal-950 text-white font-black py-10 rounded-[4rem] shadow-2xl hover:bg-black transition text-3xl tracking-[0.3em] uppercase">SHARE TRAVEL</button>
+                    </form>
+                </div>
+                <div class="2xl:w-3/4">
+                    <h3 class="text-5xl font-black text-teal-950 mb-16 uppercase tracking-[0.4em] text-center xl:text-left underline decoration-teal-300 underline-offset-8">Available Transport</h3>
+                    <div id="bus-display-container"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Huge Contact Section -->
+        <section id="contact" class="w-full px-12 py-40 bg-white rounded-[9rem] shadow-2xl border-t-[30px] border-orange-500 mb-20">
+            <div class="text-center mb-32"><h2 class="text-8xl sm:text-[12rem] font-black text-teal-950 mb-12 font-serif tracking-tighter leading-none">Contact Us</h2><p class="text-gray-400 font-black text-4xl uppercase tracking-[0.8em]">Worldwide Support</p></div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-32 items-stretch w-full">
+                <div class="bg-teal-50 p-24 rounded-[7rem] flex flex-col justify-center space-y-24 border-2 border-teal-100 shadow-inner">
+                    <div class="transform hover:scale-105 transition-transform duration-500">
+                        <p class="text-teal-800 font-black text-base uppercase tracking-[0.5em] mb-10">ADS & LIVE BOOKING LINE</p>
+                        <a href="tel:01169655585" class="text-teal-950 font-black text-7xl sm:text-8xl lg:text-9xl hover:text-orange-600 transition leading-none tracking-tighter">011-69655585</a>
+                    </div>
+                    <div class="transform hover:scale-105 transition-transform duration-500">
+                        <p class="text-teal-800 font-black text-base uppercase tracking-[0.5em] mb-10">OFFICIAL SUPPORT EMAIL</p>
+                        <a href="mailto:shreeshyamtvofficial@gmail.com" class="text-teal-950 font-black text-4xl sm:text-5xl hover:text-orange-600 transition break-all underline decoration-orange-500 decoration-[12px] underline-offset-8 uppercase">shreeshyamtvofficial@gmail.com</a>
+                    </div>
+                </div>
+                <div class="bg-white p-20 rounded-[7rem] shadow-2xl border-4 border-gray-50 flex flex-col justify-center">
+                    <form onsubmit="submitContact(event)" class="space-y-16">
+                        <div class="space-y-4"><label class="text-sm font-black text-gray-400 uppercase tracking-[0.5em] ml-8">Full Name</label><input type="text" name="name" required placeholder="ENTER YOUR NAME" class="w-full p-10 border-4 border-gray-100 rounded-[4rem] text-3xl bg-gray-50 outline-none focus:border-orange-500 transition shadow-inner font-black"></div>
+                        <div class="space-y-4"><label class="text-sm font-black text-gray-400 uppercase tracking-[0.5em] ml-8">Mailbox</label><input type="email" name="email" required placeholder="EMAIL@ADDRESS.COM" class="w-full p-10 border-4 border-gray-100 rounded-[4rem] text-3xl bg-gray-50 outline-none focus:border-orange-500 transition shadow-inner font-black"></div>
+                        <div class="space-y-4"><label class="text-sm font-black text-gray-400 uppercase tracking-[0.5em] ml-8">Message Box</label><textarea name="message" required rows="5" placeholder="TELL US ANYTHING..." class="w-full p-10 border-4 border-gray-100 rounded-[4rem] text-3xl bg-gray-50 outline-none focus:border-orange-500 transition shadow-inner font-black"></textarea></div>
+                        <button type="submit" class="w-full bg-teal-950 text-white font-black py-12 rounded-[5rem] shadow-2xl hover:bg-black transition text-4xl tracking-[0.4em] transform active:scale-95 uppercase">SEND MESSAGE</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Spiritual Footer -->
+    <footer class="bg-teal-950 text-white py-40 border-t-[20px] border-orange-500 text-center w-full">
+        <div class="w-full px-10">
+            <h3 class="text-7xl sm:text-9xl font-black text-amber-400 mb-16 tracking-[0.6em] uppercase opacity-90">SSTV FAMILY</h3>
+            <p class="text-3xl text-gray-500 mb-24 font-bold tracking-widest leading-loose max-w-7xl mx-auto uppercase">A dedicated platform for the global community of Shyam Premi. <br>Spreading spiritual energy through modern media.</p>
+            <a href="https://chat.whatsapp.com/KQVNg9BqBbm1No8PJqyzdm" target="_blank" class="inline-block bg-green-600 px-24 py-10 rounded-full font-black text-5xl hover:bg-green-700 transition shadow-[0_40px_80px_rgba(0,0,0,0.5)] border-b-[15px] border-green-800 transform hover:scale-110 active:translate-y-6 active:border-b-0 uppercase">JOIN WHATSAPP HUB</a>
+            <p class="mt-40 text-gray-700 font-black uppercase tracking-[1em] text-sm">&copy; 2025 Shree Shyam TV Global. All Spiritual Rights Reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Animated Floating Action -->
+    <a href="https://chat.whatsapp.com/KQVNg9BqBbm1No8PJqyzdm" target="_blank" class="fixed bottom-16 right-16 z-50 p-10 bg-green-500 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-[10px] border-white hover:scale-125 transition-all active:scale-90 animate-bounce"><svg class="w-20 h-20 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12.039 2.001c-5.52 0-10 4.48-10 10s4.48 10 10 10 10-4.48 10-10-4.48-10-10-10zm0 18.232c-4.593 0-8.232-3.72-8.232-8.232 0-2.227.91-4.307 2.532-5.78l-.666-2.433 2.505.658c1.37-1.144 3.12-1.78 4.673-1.78 4.593 0 8.232 3.72 8.232 8.232 0 4.512-3.715 8.232-8.232 8.232zm3.327-4.678c-.149-.247-.534-.403-.923-.55-.389-.147-2.315-1.129-2.736-1.276-.421-.147-.728-.221-.923.221-.194.442-.751.923-.918 1.118-.167.194-.334.221-.617.074-.367-.147-1.554-.572-2.96-1.83-1.104-1.026-1.847-2.336-2.071-2.757-.221-.421-.022-.647.175-.842.16-.16.357-.403.534-.647.175-.247.234-.403.334-.617.1-.221.05-.403-.022-.55-.072-.147-.814-1.97-.98-2.388-.166-.375-.33-.306-.511-.313-.194-.007-.421-.007-.647-.007-.226 0-.61.074-.923.37-.312.296-1.187 1.161-1.187 2.825 0 1.664 1.21 3.27 1.391 3.518.18.247 2.373 3.65 5.758 5.093 3.386 1.442 3.386 1.05 4.004.976.618-.074 1.944-.795 2.226-1.555.283-.761.283-1.407.194-1.554-.089-.147-.32-.221-.514-.367z"/></svg></a>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Slider Logic
+            const slides = document.querySelectorAll('.carousel-slide');
+            const dots = document.getElementById('carousel-dots');
+            let current = 0;
+            function showSlide(idx) {
+                slides.forEach(s => s.classList.remove('active'));
+                if (slides[idx]) slides[idx].classList.add('active');
+                current = idx;
+                updateDots();
+            }
+            function updateDots() {
+                document.querySelectorAll('.dot-btn').forEach((d, i) => {
+                    d.className = i === current ? 'dot-btn w-8 h-8 rounded-full bg-[#FF9933] shadow-lg' : 'dot-btn w-8 h-8 rounded-full bg-white/40';
+                });
+            }
+            slides.forEach((_, i) => {
+                const btn = document.createElement('button');
+                btn.className = 'dot-btn w-8 h-8 rounded-full bg-white/40 transition-all';
+                btn.onclick = () => showSlide(i);
+                dots.appendChild(btn);
+            });
+            updateDots();
+            setInterval(() => showSlide((current + 1) % slides.length), 8000);
+
+            // Live HLS Video
+            const video = document.getElementById('shyam-live-video');
+            const source = 'https://cloudcdn.in/live/shreeshyamtv/index.m3u8';
+            if (window.Hls && Hls.isSupported()) {
+                const hls = new Hls(); hls.loadSource(source); hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(e => {}));
+            } else if (video && video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = source;
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -1,5 +1,5 @@
 import sqlite3
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify , render_template
 from flask_cors import CORS
 from datetime import datetime
 import threading
@@ -107,6 +107,10 @@ def cleanup_expired_posts():
         
         time.sleep(3600) # Run every hour
 
+
+@app.route('/')
+def home():
+    return render_template('shree_shyam_tv.html')
 # --- API Routes ---
 
 # 1. Kirtan Endpoints
@@ -245,3 +249,4 @@ if __name__ == '__main__':
     # Run server
 
     app.run(host='0.0.0.0', port=10000)
+

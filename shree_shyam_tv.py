@@ -9,7 +9,6 @@ app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend integration
 
 DB_NAME = "shree_shyam_tv.db"
-
 # --- Profanity Filter ---
 PROFANITY_LIST = ["bhadwa", "chutiya", "madarchod", "behenchod", "saala", "asshole", "fuck", "shit", "bitch", "gandu"]
 
@@ -241,12 +240,14 @@ def get_stats():
     conn.close()
     return jsonify({"daily_visitors": row[0] if row else 0})
 
-if __name__ == '__main__':
-    init_db()
-    # Start cleanup thread
-    daemon = threading.Thread(target=cleanup_expired_posts, daemon=True)
-    daemon.start()
-    # Run server
+init_db()
 
-    app.run(host='0.0.0.0', port=10000)
+cleanup_thread = threading.Thread(
+    target=cleanup_expired_posts,
+    daemon=True
+)
+cleanup_thread.start()
+
+
+
 

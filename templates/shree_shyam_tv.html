@@ -213,7 +213,7 @@
         <nav class="w-full px-8 py-5 flex justify-between items-center">
             <div class="flex items-center space-x-4">
                 <div class="w-[70px] h-[70px]">
-                    <img src="logo.png" 
+                    <img src="{{ url_for('static', filename='logo.png') }}" 
                         alt="Shree Shyam TV Logo" 
                         class="w-full h-full">
                 </div>
@@ -328,7 +328,7 @@
                 <div class="flex justify-center">
                     <div class="w-[450px] h-[800px] bg-[#011a1a] rounded-[6rem] border-[20px] border-[#111827] shadow-[0_0_150px_rgba(0,0,0,0.8)] flex flex-col items-center justify-center relative transform hover:rotate-3 transition duration-1000">
                         <div class="w-[200px] h-[200px]">
-                            <img src="logo.png" 
+                            <img src="{{ url_for('static', filename='logo.png') }}" 
                                 alt="Shree Shyam TV Logo" 
                                 class="w-full h-full">
                         </div>
